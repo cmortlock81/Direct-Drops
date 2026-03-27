@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Direct Drops">
+  <rect width="512" height="512" rx="64" fill="#2563eb"/>
+  <path d="M96 256h320" stroke="#fff" stroke-width="42" stroke-linecap="round"/>
+  <circle cx="170" cy="340" r="38" fill="#fff"/>
+  <circle cx="342" cy="340" r="38" fill="#fff"/>
+</svg>
