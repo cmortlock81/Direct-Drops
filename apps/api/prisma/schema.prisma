@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CONTROLLER
+  COURIER
+}
+
+enum CourierStatus {
+  OFFLINE
+  AVAILABLE
+  BUSY
+}
+
+enum JobStatus {
+  NEW
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum Priority {
+  NORMAL
+  HIGH
+}
+
+model User {
+  id           String   @id @default(uuid())
+  role         Role
+  name         String
+  phone        String?  @unique
+  username     String?  @unique
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  courier Courier?
+
+  createdJobs    Job[]          @relation("JobCreator")
+  events         JobEvent[]
+  updatedSettings AdminSetting[]
+  updatedTemplates SmsTemplate[]
+
+  @@map("users")
+}
+
+model Courier {
+  id             String        @id @default(uuid())
+  userId         String        @unique @map("user_id")
+  vehicleType    String?       @map("vehicle_type")
+  currentStatus  CourierStatus @default(OFFLINE) @map("current_status")
+  lastLocationAt DateTime?     @map("last_location_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user      User              @relation(fields: [userId], references: [id])
+  jobs      Job[]
+  locations CourierLocation[]
+
+  @@map("couriers")
+}
+
+model Job {
+  id                   String      @id @default(uuid())
+  customerName         String      @map("customer_name")
+  customerPhone        String      @map("customer_phone")
+  deliveryAddressLine1 String      @map("delivery_address_line1")
+  deliveryAddressLine2 String?     @map("delivery_address_line2")
+  deliveryCity         String      @map("delivery_city")
+  deliveryPostcode     String      @map("delivery_postcode")
+  deliveryLat          Float?      @map("delivery_lat")
+  deliveryLng          Float?      @map("delivery_lng")
+  notes                String?
+  status               JobStatus   @default(NEW)
+  priority             Priority    @default(NORMAL)
+  assignedCourierId    String?     @map("assigned_courier_id")
+  createdByUserId      String      @map("created_by_user_id")
+  assignedAt           DateTime?   @map("assigned_at")
+  outForDeliveryAt     DateTime?   @map("out_for_delivery_at")
+  deliveredAt          DateTime?   @map("delivered_at")
+  failedAt             DateTime?   @map("failed_at")
+  cancelledAt          DateTime?   @map("cancelled_at")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  assignedCourier Courier?          @relation(fields: [assignedCourierId], references: [id])
+  createdByUser   User              @relation("JobCreator", fields: [createdByUserId], references: [id])
+  events          JobEvent[]
+  locations       CourierLocation[]
+  smsMessages     SmsMessage[]
+
+  @@map("jobs")
+}
+
+model JobEvent {
+  id              String   @id @default(uuid())
+  jobId           String   @map("job_id")
+  eventType       String   @map("event_type")
+  eventPayload    Json     @map("event_payload")
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  job           Job   @relation(fields: [jobId], references: [id])
+  createdByUser User? @relation(fields: [createdByUserId], references: [id])
+
+  @@map("job_events")
+}
+
+model CourierLocation {
+  id             String   @id @default(uuid())
+  courierId      String   @map("courier_id")
+  jobId          String?  @map("job_id")
+  lat            Float
+  lng            Float
+  accuracyMeters Float?   @map("accuracy_meters")
+  heading        Float?
+  speedKph       Float?   @map("speed_kph")
+  capturedAt     DateTime @map("captured_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  courier Courier @relation(fields: [courierId], references: [id])
+  job     Job?    @relation(fields: [jobId], references: [id])
+
+  @@map("courier_locations")
+}
+
+model SmsMessage {
+  id                 String   @id @default(uuid())
+  jobId              String   @map("job_id")
+  customerPhone      String   @map("customer_phone")
+  templateKey        String   @map("template_key")
+  provider           String   @default("TWILIO")
+  providerMessageSid String?  @map("provider_message_sid")
+  status             String
+  errorCode          String?  @map("error_code")
+  errorMessage       String?  @map("error_message")
+  sentAt             DateTime? @map("sent_at")
+  deliveredAt        DateTime? @map("delivered_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  job Job @relation(fields: [jobId], references: [id])
+
+  @@map("sms_messages")
+}
+
+model AdminSetting {
+  key             String   @id
+  value           Json
+  updatedByUserId String?  @map("updated_by_user_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  updatedByUser User? @relation(fields: [updatedByUserId], references: [id])
+
+  @@map("admin_settings")
+}
+
+model SmsTemplate {
+  id              String   @id @default(uuid())
+  eventKey        String   @unique @map("event_key")
+  name            String
+  isEnabled       Boolean  @default(true) @map("is_enabled")
+  body            String
+  updatedByUserId String?  @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  updatedByUser User? @relation(fields: [updatedByUserId], references: [id])
+
+  @@map("sms_templates")
+}
